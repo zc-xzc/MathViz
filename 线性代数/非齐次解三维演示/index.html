@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>非齐次通解的结构 · MathViz</title>
+<style>
+/* =============================================================
+   1. 设计令牌 — 全新配色体系
+   ============================================================ */
+:root {
+  /* 背景层 */
+  --bg-deepest: #0b0817;
+  --bg-deep:    #120e24;
+  --bg-mid:     #1a1533;
+  --bg-panel:   rgba(18, 14, 40, 0.90);
+  --bg-float:   rgba(10, 8, 22, 0.82);
+
+  /* 边框与分割 */
+  --border-subtle: rgba(196, 181, 253, 0.10);
+  --border-mid:    rgba(196, 181, 253, 0.18);
+
+  /* 文字 */
+  --text-primary: #eeeaff;
+  --text-secondary: #a8a0c8;
+  --text-muted:    #7c74a0;
+
+  /* 主题色 — 紫 + 琥珀 */
+  --accent-1: #a78bfa;   /* 淡紫 */
+  --accent-2: #f59e0b;   /* 琥珀 */
+  --accent-3: #34d399;   /* 翡翠 */
+  --accent-4: #f472b6;   /* 粉 */
+  --accent-5: #60a5fa;   /* 蓝 */
+  --accent-6: #fb923c;   /* 橙 */
+
+  /* 场景对象颜色（与主题色不同，用于区分几何元素） */
+  --color-plane:         #4f46e5;
+  --color-homogeneous:   #f59e0b;
+  --color-nonhomogeneous:#ec4899;
+  --color-particular:    #10b981;
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* 字体 */
+  --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, Consolas, monospace;
+}
+
+/* ---- MathViz 顶部导航条 ---- */
+.viz-bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 22px;
+  background: rgba(11, 8, 23, 0.88);
+  border-bottom: 1px solid var(--border-subtle);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+}
+.viz-bar a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 12px;
+  transition: color 0.15s;
+}
+.viz-bar a:hover { color: var(--accent-1); }
+.viz-bar .vb-brand {
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 13px;
+  letter-spacing: -0.02em;
+}
+.viz-bar .vb-brand span { color: var(--accent-1); }
+.viz-bar .vb-sep { color: var(--text-muted); font-size: 10px; }
+.viz-bar .vb-current { color: var(--text-muted); font-size: 12px; }
+
+/* =============================================================
+   2. 全局重置
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deepest);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* =============================================================
+   3. 背景纹理（纯 CSS，无外部依赖）
+   ============================================================ */
+#app {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 多层背景叠加，产生深邃的渐变纹理 */
+#app::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    /* 大尺度光晕 */
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(139, 92, 246, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 85% 20%, rgba(245, 158, 11, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 50% 90%, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+    /* 网格线（PNG 替代方案：纯 CSS） */
+    linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px),
+    /* 基底深色 */
+    var(--bg-deepest);
+  background-size:
+    100% 100%, 100% 100%, 100% 100%,
+    48px 48px, 48px 48px;
+  pointer-events: none;
+}
+
+/* 右上角装饰光 */
+#app::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 500px;
+  height: 500px;
+  z-index: 0;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.06) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 所有内容层在背景之上 */
+.header, .main {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   4. 顶部标题栏
+   ============================================================ */
+.header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  backdrop-filter: blur(12px);
+  background: rgba(11, 8, 23, 0.6);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* 左侧logo标记 */
+.logo-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: #0b0817;
+  flex-shrink: 0;
+}
+
+.header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.header-breadcrumb {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.header h1 {
+  font-size: clamp(17px, 1.8vw, 26px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rank-chip {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  color: var(--accent-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================
+   5. 主体布局
+   ============================================================ */
+.main {
+  flex: 1 1 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(340px, 0.85fr);
+  gap: 14px;
+  padding: 14px 24px 16px;
+  min-height: 0;
+}
+
+/* ============================================================
+   6. 3D 场景
+   ============================================================ */
+.scene-section {
+  position: relative;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-mid);
+  background: var(--bg-panel);
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+#sceneMount {
+  position: absolute;
+  inset: 0;
+}
+#sceneMount canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ---- 图例（新设计） ---- */
+.legend-bar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--radius-full);
+  background: rgba(11, 8, 23, 0.75);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(6px);
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legend-dot.plane { background: var(--color-plane); }
+.legend-dot.homo  { background: var(--color-homogeneous); }
+.legend-dot.nonhomo { background: var(--color-nonhomogeneous); }
+.legend-dot.part  { background: var(--color-particular); }
+
+/* ---- 底部状态条（新设计） ---- */
+.status-bar {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(11, 8, 23, 0.80);
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  backdrop-filter: blur(6px);
+  color: #d8d0f0;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* ---- 加载错误 ---- */
+.load-error {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  padding: 24px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(251, 113, 133, 0.4);
+  background: rgba(30, 10, 20, 0.95);
+  color: #fecdd3;
+  text-align: center;
+  line-height: 1.7;
+  max-width: 380px;
+}
+
+/* ============================================================
+   7. 侧边面板
+   ============================================================ */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-mid);
+  background: var(--bg-panel);
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.panel-scroll {
+  flex: 1 1 0;
+  overflow-y: auto;
+  padding: 16px;
+  min-height: 0;
+}
+.panel-scroll::-webkit-scrollbar { width: 3px; }
+.panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.panel-scroll::-webkit-scrollbar-thumb { background: rgba(167, 139, 250, 0.2); border-radius: 4px; }
+
+/* ---- 区块通用 ---- */
+.panel-section {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.panel-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.section-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* ---- 固定矩阵公式 ---- */
+.matrix-display {
+  text-align: center;
+  padding: 4px 0;
+}
+.matrix-note {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+/* ---- 步骤区块（新设计） ---- */
+.step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.step-counter {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  background: rgba(167, 139, 250, 0.10);
+  border: 1px solid rgba(167, 139, 250, 0.18);
+  color: var(--accent-1);
+}
+
+.step-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 8px 0 6px;
+  color: var(--text-primary);
+}
+.step-desc {
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+}
+.step-equation {
+  min-height: 42px;
+  text-align: center;
+  margin: 6px 0 8px;
+  color: #e8e2ff;
+}
+.step-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---- 维数定理卡片 ---- */
+.dim-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.dim-term {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+.dim-term.amber  { border-color: rgba(245,158,11,0.25); color: var(--accent-2); background: rgba(245,158,11,0.06); }
+.dim-term.green  { border-color: rgba(52,211,153,0.25); color: var(--accent-3); background: rgba(52,211,153,0.06); }
+.dim-term.pink   { border-color: rgba(244,114,182,0.25); color: var(--accent-4); background: rgba(244,114,182,0.06); }
+.dim-plus {
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 300;
+}
+
+/* ---- 参数控制 ---- */
+.param-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.param-row label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.param-display {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--accent-1);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* 自定义滑块 */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(167, 139, 250, 0.15);
+  outline: none;
+  margin: 8px 0;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-1), #7c3aed);
+  border: 2px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  transition: transform 0.15s;
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.3);
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-1), #7c3aed);
+  border: 2px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(167, 139, 250, 0.3);
+}
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent-1);
+  outline-offset: 4px;
+}
+
+/* 点坐标显示 */
+.coord-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 4px 0 6px;
+}
+.coord-card {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border-subtle);
+}
+.coord-card .coord-label {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.coord-card .coord-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.live-equation {
+  min-height: 40px;
+  text-align: center;
+  margin-top: 4px;
+  color: #e8e2ff;
+}
+
+/* ---- 控制按钮 ---- */
+.ctrl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ctrl-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-mid);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+.btn:hover {
+  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.08);
+  color: var(--text-primary);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--accent-1);
+  outline-offset: 2px;
+}
+.btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-1), #7c3aed);
+  border-color: transparent;
+  color: #0b0817;
+  font-weight: 600;
+}
+.btn-primary:hover {
+  opacity: 0.9;
+  border-color: transparent;
+  color: #0b0817;
+}
+
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.btn[aria-pressed="true"] {
+  border-color: rgba(167, 139, 250, 0.35);
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--accent-1);
+}
+
+.help-hint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   8. 公式适配
+   ============================================================ */
+mjx-container {
+  color: inherit !important;
+  display: inline-block !important;
+}
+
+/* ============================================================
+   9. 响应式
+   ============================================================ */
+@media (max-width: 1100px) {
+  .main {
+    grid-template-columns: 1fr;
+  }
+  .side-panel {
+    max-height: 480px;
+  }
+}
+
+@media (max-width: 620px) {
+  .header {
+    flex-wrap: wrap;
+    padding: 10px 14px;
+  }
+  .header-right { width: 100%; justify-content: flex-end; }
+  .main { padding: 10px 14px 12px; }
+  .coord-grid { grid-template-columns: 1fr; }
+  .side-panel { max-height: 380px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
+  input[type="range"]::-webkit-slider-thumb { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<!--- ============================================================
+     应用入口
+     ============================================================ -->
+<div id="app">
+
+  <!-- ======== MathViz 导航条 ======== -->
+  <div class="viz-bar">
+    <div>
+      <a href="../../index.html"><span class="vb-brand">Math<span>Viz</span></span></a>
+      <span class="vb-sep">›</span>
+      <a href="../index.html">线性代数</a>
+      <span class="vb-sep">›</span>
+      <span class="vb-current">非齐次解三维演示</span>
+    </div>
+    <a href="../../index.html">← 返回首页</a>
+  </div>
+
+  <!-- ======== 顶部导航 ======== -->
+  <header class="header">
+    <div class="brand">
+      <div class="logo-mark">L·A</div>
+      <div class="header-title">
+        <span class="header-breadcrumb">MathViz · 3D 交互演示</span>
+        <h1>非齐次通解 = 特解 + 齐次通解</h1>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="rank-chip">r(A) = r(A|b) = 2 &lt; 3</span>
+    </div>
+  </header>
+
+  <!-- ======== 主体 ======== -->
+  <div class="main">
+
+    <!-- ===== 3D 场景 ===== -->
+    <section class="scene-section" aria-label="三维解空间可视化">
+      <div id="sceneMount"></div>
+
+      <!-- 图例 -->
+      <div class="legend-bar" aria-label="图例">
+        <span class="legend-chip"><i class="legend-dot plane"></i>列空间 / 值域</span>
+        <span class="legend-chip"><i class="legend-dot homo"></i>齐次解空间 N(A)</span>
+        <span class="legend-chip"><i class="legend-dot nonhomo"></i>非齐次解集</span>
+        <span class="legend-chip"><i class="legend-dot part"></i>特解 Xₚ</span>
+      </div>
+
+      <!-- 状态条 -->
+      <div id="statusBar" class="status-bar">正在初始化三维场景…</div>
+
+      <!-- 加载错误 -->
+      <div id="loadError" class="load-error" hidden>
+        <strong>⚠ 三维引擎加载失败</strong><br>
+        请检查网络连接后刷新页面。
+      </div>
+    </section>
+
+    <!-- ===== 侧边面板 ===== -->
+    <aside class="side-panel">
+      <div class="panel-scroll">
+
+        <!-- 固定例子 -->
+        <section class="panel-section">
+          <div class="section-label">示例设定</div>
+          <div class="matrix-display">\[
+            A=\begin{pmatrix}1&amp;0&amp;0\\0&amp;1&amp;0\\0&amp;0&amp;0\end{pmatrix},\;
+            b=\begin{pmatrix}2\\3\\0\end{pmatrix}
+          \]</div>
+          <div class="matrix-note">A 的作用：把 (x,y,z)ᵀ 投影到 (x,y,0)ᵀ</div>
+        </section>
+
+        <!-- 分步讲解 -->
+        <section class="panel-section">
+          <div class="step-header">
+            <span id="stepIdx" class="step-counter">01 / 08</span>
+            <span id="stepBadge" class="step-badge">值域</span>
+          </div>
+          <h2 id="stepTitle" class="step-title">A 把三维空间压缩到 xy 平面</h2>
+          <p id="stepDesc" class="step-desc">无论输入的 z 是多少，输出的第三个坐标永远为 0，所以 A 的值域（列空间）就是整个 xy 平面。</p>
+          <div id="stepEq" class="step-equation">\[A(x,y,z)^T=(x,y,0)^T\]</div>
+          <div class="step-actions">
+            <button id="prevBtn" type="button" class="btn" disabled>← 上一步</button>
+            <button id="nextBtn" type="button" class="btn btn-primary">下一步 →</button>
+          </div>
+        </section>
+
+        <!-- 维数公式 -->
+        <section class="panel-section">
+          <div class="section-label">秩—零度定理</div>
+          <div class="dim-card">
+            <span class="dim-term amber">dim N(A) = 1</span>
+            <span class="dim-plus">+</span>
+            <span class="dim-term green">rank(A) = 2</span>
+            <span class="dim-plus">=</span>
+            <span class="dim-term pink">n = 3</span>
+          </div>
+        </section>
+
+        <!-- 参数 t -->
+        <section class="panel-section">
+          <div class="param-row">
+            <label for="tSlider">自由参数 <i>t</i></label>
+            <output id="tDisplay" class="param-display" for="tSlider">0.0</output>
+          </div>
+          <input id="tSlider" type="range" min="-5" max="5" value="0" step="0.1" aria-label="自由参数 t，范围 -5 到 5">
+          <div class="coord-grid">
+            <div class="coord-card">
+              <span class="coord-label">齐次解 Xₕ</span>
+              <span id="xhVal" class="coord-value" style="color:var(--accent-2);">(0, 0, 0.0)ᵀ</span>
+            </div>
+            <div class="coord-card">
+              <span class="coord-label">非齐次解 X = Xₚ + Xₕ</span>
+              <span id="xVal" class="coord-value" style="color:var(--accent-4);">(2, 3, 0.0)ᵀ</span>
+            </div>
+          </div>
+          <div id="liveEq" class="live-equation">\[
+            \begin{pmatrix}2\\3\\0\end{pmatrix}
+            =\begin{pmatrix}2\\3\\0\end{pmatrix}
+            +\begin{pmatrix}0\\0\\0\end{pmatrix}
+          \]</div>
+        </section>
+
+        <!-- 控制区 -->
+        <section class="panel-section">
+          <div class="ctrl-group">
+            <div class="ctrl-row">
+              <button id="playBtn" type="button" class="btn btn-primary">▶ 播放动画</button>
+              <button id="pauseBtn" type="button" class="btn">⏸ 暂停</button>
+              <button id="resetViewBtn" type="button" class="btn">⟲ 重置视角</button>
+            </div>
+            <div class="ctrl-row">
+              <button id="togglePlane" type="button" class="btn btn-sm" aria-pressed="true">隐藏 xy 平面</button>
+              <button id="toggleH" type="button" class="btn btn-sm" aria-pressed="true">隐藏齐次解空间</button>
+              <button id="toggleN" type="button" class="btn btn-sm" aria-pressed="true">隐藏非齐次解空间</button>
+              <button id="toggleLabels" type="button" class="btn btn-sm" aria-pressed="true">隐藏标注</button>
+            </div>
+            <div class="help-hint">🖱 左键旋转 · 滚轮缩放 · 右键平移</div>
+          </div>
+        </section>
+
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     MathJax 配置
+     ============================================================ -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['\\(', '\\)']],
+    displayMath: [['\\[', '\\]']]
+  },
+  chtml: { scale: 0.87 },
+  options: { enableMenu: false }
+};
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+<!-- ============================================================
+     主程序 — 全新的 3D 引擎代码
+     ============================================================ -->
+<script>
+(function () {
+  'use strict';
+
+  /* =============================================================
+     一、配置常量
+     ============================================================= */
+  const COLOR = {
+    x:      0xf87171,
+    y:      0x34d399,
+    z:      0x60a5fa,
+    plane:  0x4f46e5,
+    homogeneous:     0xf59e0b,
+    nonhomogeneous:  0xec4899,
+    particular:      0x10b981,
+  };
+
+  const CSS_C = {
+    x:  '#f87171', y: '#34d399', z: '#60a5fa',
+    homogeneous:    '#fbbf24',
+    nonhomogeneous: '#f472b6',
+    particular:     '#34d399',
+  };
+
+  const visible = { plane: true, homogeneous: true, nonhomogeneous: true, labels: true };
+  const labels = [];
+
+  let tVal = 0;
+  const anim = { playing: false, paused: false, start: 0, duration: 6000 };
+
+  /* =============================================================
+     二、DOM 引用
+     ============================================================= */
+  const mount  = document.getElementById('sceneMount');
+  const errEl  = document.getElementById('loadError');
+  const status = document.getElementById('statusBar');
+
+  const slider   = document.getElementById('tSlider');
+  const tDisp    = document.getElementById('tDisplay');
+  const xhVal    = document.getElementById('xhVal');
+  const xVal     = document.getElementById('xVal');
+  const liveEq   = document.getElementById('liveEq');
+
+  const stepIdx  = document.getElementById('stepIdx');
+  const stepBdg  = document.getElementById('stepBadge');
+  const stepTit  = document.getElementById('stepTitle');
+  const stepDesc = document.getElementById('stepDesc');
+  const stepEq   = document.getElementById('stepEq');
+  const prevBtn  = document.getElementById('prevBtn');
+  const nextBtn  = document.getElementById('nextBtn');
+
+  /* =============================================================
+     三、Three.js 场景
+     ============================================================= */
+  if (!window.THREE || !THREE.OrbitControls) {
+    errEl.hidden = false;
+    status.textContent = '❌ 加载失败，请检查网络';
+    return;
+  }
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0b0817);
+  scene.fog = new THREE.FogExp2(0x0b0817, 0.025);
+
+  const cam = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
+  const CAM_HOME = new THREE.Vector3(10.8, 10.2, 8.2);
+  cam.position.copy(CAM_HOME);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  mount.appendChild(renderer.domElement);
+
+  const orbit = new THREE.OrbitControls(cam, renderer.domElement);
+  orbit.enableDamping = true;
+  orbit.dampingFactor = 0.065;
+  orbit.screenSpacePanning = true;
+  orbit.target.set(0.8, 1.1, 0);
+  orbit.minDistance = 5;
+  orbit.maxDistance = 28;
+
+  scene.add(new THREE.HemisphereLight(0x9edfff, 0x111522, 1.05));
+  const key = new THREE.DirectionalLight(0xffffff, 0.85);
+  key.position.set(6, 8, 10);
+  scene.add(key);
+
+  function resize() {
+    const w = Math.max(320, mount.clientWidth);
+    const h = Math.max(420, mount.clientHeight);
+    cam.aspect = w / h;
+    cam.updateProjectionMatrix();
+    renderer.setSize(w, h, false);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* =============================================================
+     四、3D 工具函数
+     ============================================================= */
+  function mat(color, opacity) {
+    const m = new THREE.MeshStandardMaterial({
+      color, emissive: color, emissiveIntensity: 0.25,
+      transparent: opacity < 1, opacity,
+      roughness: 0.35, metalness: 0.08,
+      depthWrite: opacity >= 1,
+    });
+    m.userData.baseOpacity = opacity;
+    return m;
+  }
+
+  function label(text, color, scale, bg) {
+    const r = 2;
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    ctx.font = '500 ' + (24 * r) + 'px PingFang SC, Microsoft YaHei, sans-serif';
+    const w = Math.ceil(ctx.measureText(text).width + 28 * r);
+    c.width = w; c.height = 42 * r;
+    ctx.font = '500 ' + (24 * r) + 'px PingFang SC, Microsoft YaHei, sans-serif';
+    if (bg) {
+      ctx.fillStyle = 'rgba(8, 6, 18, 0.80)';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, c.width, c.height, 10);
+      ctx.fill();
+    }
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, c.width / 2, c.height / 2 + 1);
+    const tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    s.scale.set(scale * (c.width / c.height), scale, 1);
+    s.renderOrder = 50;
+    labels.push(s);
+    return s;
+  }
+
+  function setOpac(obj, op) {
+    obj.traverse(function (ch) {
+      if (ch.material && ch.material.opacity !== undefined) {
+        ch.material.transparent = true;
+        ch.material.opacity = op;
+      }
+    });
+  }
+
+  function solLine(x, y, color, dashed) {
+    const g = new THREE.Group();
+    const pts = [new THREE.Vector3(x, y, -7.2), new THREE.Vector3(x, y, 7.2)];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const m = dashed
+      ? new THREE.LineDashedMaterial({ color, dashSize: .34, gapSize: .2, transparent: true, opacity: .95 })
+      : new THREE.LineBasicMaterial({ color, transparent: true, opacity: .95 });
+    m.userData.baseOpacity = .95;
+    const ln = new THREE.Line(geo, m);
+    if (dashed) ln.computeLineDistances();
+    g.add(ln);
+    const cm = mat(color, .95);
+    const cg = new THREE.ConeGeometry(.16, .44, 18);
+    const up = new THREE.Mesh(cg, cm); up.position.set(x, y, 7.25);
+    const dn = new THREE.Mesh(cg, cm.clone()); dn.position.set(x, y, -7.25); dn.rotation.x = Math.PI;
+    g.add(up, dn);
+    g.userData.line = ln;
+    return g;
+  }
+
+  /* =============================================================
+     五、构建场景
+     ============================================================= */
+
+  // --- 坐标轴 ---
+  const axisG = new THREE.Group(); scene.add(axisG);
+  function ax(dir, c) { axisG.add(new THREE.ArrowHelper(dir.clone().normalize(), new THREE.Vector3(0,0,0), 6.8, c, .35, .2)); }
+  ax(new THREE.Vector3(1,0,0), COLOR.x);
+  ax(new THREE.Vector3(0,1,0), COLOR.y);
+  ax(new THREE.Vector3(0,0,1), COLOR.z);
+  function axLbl(t, c, p) { const s = label(t, c, .55, true); s.position.copy(p); axisG.add(s); }
+  axLbl('+x', CSS_C.x, new THREE.Vector3(7.15, 0, 0));
+  axLbl('+y', CSS_C.y, new THREE.Vector3(0, 7.15, 0));
+  axLbl('+z', CSS_C.z, new THREE.Vector3(0, 0, 7.15));
+  const oL = label('O', '#ccc8e0', .42, true); oL.position.set(-.35, -.35, -.35); axisG.add(oL);
+
+  // --- xy 平面 ---
+  const planeG = new THREE.Group(); scene.add(planeG);
+  const pMat = new THREE.MeshBasicMaterial({ color: COLOR.plane, transparent: true, opacity: .15, side: THREE.DoubleSide, depthWrite: false });
+  pMat.userData.baseOpacity = .15;
+  planeG.add(new THREE.Mesh(new THREE.PlaneGeometry(12, 12), pMat));
+  const grid = new THREE.GridHelper(12, 12, 0x6366f1, 0x312e81);
+  grid.rotation.x = Math.PI / 2;
+  grid.material.transparent = true;
+  grid.material.opacity = .38;
+  grid.material.userData.baseOpacity = .38;
+  planeG.add(grid);
+  const plL = label('列空间：xy 平面', '#8b8cf7', .60, true);
+  plL.position.set(-2.4, 4.7, .15);
+  planeG.add(plL);
+
+  // --- 齐次解空间 ---
+  const homoG = solLine(0, 0, COLOR.homogeneous, true);
+  scene.add(homoG);
+  const hoL = label('齐次解空间  Xₕ=(0,0,t)ᵀ', CSS_C.homogeneous, .58, true);
+  hoL.position.set(-1.5, -.55, -4.7);
+  homoG.add(hoL);
+
+  // --- 非齐次解空间 ---
+  const nonhomoG = solLine(2, 3, COLOR.nonhomogeneous, false);
+  scene.add(nonhomoG);
+  const noL = label('非齐次解集  X=(2,3,t)ᵀ', CSS_C.nonhomogeneous, .58, true);
+  noL.position.set(3.65, 3.45, 4.7);
+  nonhomoG.add(noL);
+
+  // --- 特解 ---
+  const partMat = mat(COLOR.particular, 1);
+  const partPt = new THREE.Mesh(new THREE.SphereGeometry(.22, 28, 20), partMat);
+  partPt.position.set(2, 3, 0);
+  scene.add(partPt);
+  const haloMat = new THREE.MeshBasicMaterial({ color: COLOR.particular, transparent: true, opacity: .7, side: THREE.DoubleSide, depthTest: false });
+  const halo = new THREE.Mesh(new THREE.RingGeometry(.3, .48, 40), haloMat);
+  halo.position.copy(partPt.position);
+  scene.add(halo);
+  const paL = label('特解  Xₚ=(2,3,0)ᵀ', CSS_C.particular, .62, true);
+  paL.position.set(3.25, 2.45, .35);
+  scene.add(paL);
+
+  // --- η 箭头 ---
+  const etaA = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 1.7, COLOR.homogeneous, .28, .18);
+  scene.add(etaA);
+  const etL = label('η=(0,0,1)ᵀ 基础解系', CSS_C.homogeneous, .55, true);
+  etL.position.set(-1.5, .42, 1.85);
+  scene.add(etL);
+
+  // --- 动态点 ---
+  const xhPt = new THREE.Mesh(new THREE.SphereGeometry(.17, 24, 16), mat(COLOR.homogeneous, 1));
+  const xPt  = new THREE.Mesh(new THREE.SphereGeometry(.19, 24, 16), mat(COLOR.nonhomogeneous, 1));
+  scene.add(xhPt, xPt);
+  const xhL = label('Xₕ', CSS_C.homogeneous, .42, true); scene.add(xhL);
+  const xxL = label('X = Xₚ + Xₕ', CSS_C.nonhomogeneous, .48, true); scene.add(xxL);
+
+  // --- 平移箭头 ---
+  const tA = new THREE.ArrowHelper(new THREE.Vector3(2,3,0).normalize(), new THREE.Vector3(0,0,0), Math.sqrt(13), COLOR.particular, .3, .18);
+  scene.add(tA);
+  const trL = label('+ Xₚ 平移', CSS_C.particular, .5, true);
+  scene.add(trL);
+
+  // --- 动画组 ---
+  const mvG = new THREE.Group();
+  const mvL = solLine(0, 0, COLOR.particular, true);
+  mvL.scale.set(.99, .99, 1);
+  mvG.add(mvL);
+  const mvPt = new THREE.Mesh(new THREE.SphereGeometry(.23, 26, 18), mat(COLOR.particular, .95));
+  mvG.add(mvPt);
+  scene.add(mvG);
+  mvG.visible = false;
+
+  /* =============================================================
+     六、数据联动
+     ============================================================= */
+  function fmt(n) { return (Math.abs(n) < 0.0001 ? 0 : Number(n)).toFixed(1); }
+
+  function typeset(nodes) {
+    if (window.MathJax && MathJax.typesetPromise) {
+      if (MathJax.typesetClear) MathJax.typesetClear(nodes);
+      MathJax.typesetPromise(nodes).catch(function () {});
+    }
+  }
+
+  function updateT(value, skip) {
+    tVal = Number(value);
+    const f = fmt(tVal);
+    tDisp.value = f;
+    xhVal.textContent = '(0, 0, ' + f + ')ᵀ';
+    xVal.textContent  = '(2, 3, ' + f + ')ᵀ';
+    xhPt.position.set(0, 0, tVal);
+    xPt.position.set(2, 3, tVal);
+    xhL.position.set(.5, .3, tVal + .18);
+    xxL.position.set(3.15, 3.35, tVal + .22);
+    tA.position.set(0, 0, tVal);
+    trL.position.set(1.1, 1.65, tVal + .25);
+    liveEq.innerHTML =
+      '\\[\\begin{pmatrix}2\\\\3\\\\' + f +
+      '\\end{pmatrix}=\\begin{pmatrix}2\\\\3\\\\0\\end{pmatrix}' +
+      '+\\begin{pmatrix}0\\\\0\\\\' + f + '\\end{pmatrix}\\]';
+    if (!skip) typeset([liveEq]);
+  }
+
+  slider.addEventListener('input', function () { anim.playing = false; updateT(slider.value); });
+  updateT(0, true);
+
+  /* =============================================================
+     七、分步讲解
+     ============================================================= */
+  const STEPS = [
+    { tag: '值域',     title: 'A 把三维空间压缩到 xy 平面', desc: '无论 z 取值多少，输出第三坐标恒为 0。A 的值域（列空间）就是整个 xy 平面，这是矩阵的"映射"本质。', eq: '\\[A(x,y,z)^T=(x,y,0)^T\\]', focus: 'plane',    status: '观察矩阵 A 如何将三维空间投影到 xy 平面' },
+    { tag: '相容性',   title: 'b 落在值域中 → 方程有解',     desc: 'b=(2,3,0)ᵀ 位于 xy 平面内，所以 r(A)=r(A|b)=2，方程组 AX=b 相容（有解）。', eq: '\\[b=(2,3,0)^T\\in\\operatorname{Col}(A)\\]', focus: 'particular', status: '黄色点 b 在列空间中，因此 AX=b 有解' },
+    { tag: '特解',     title: '找一个特解 Xₚ',               desc: '由于 b 在列空间中，至少存在一个 Xₚ 使 AXₚ=b。取 Xₚ=(2,3,0)ᵀ，验证 AXₚ=(2,3,0)ᵀ=b。', eq: '\\[X_p=\\begin{pmatrix}2\\\\3\\\\0\\end{pmatrix},\\;AX_p=b\\]', focus: 'particular', status: '金色圆点 Xₚ=(2,3,0)ᵀ 是一个特解' },
+    { tag: '无穷多解', title: '自由变量 z → 无穷多解',       desc: '方程只约束 x=2、y=3，z 完全自由。令自由参数 t∈ℝ，得到一条平行于 z 轴的解直线。', eq: '\\[X=(2,3,t)^T,\\;t\\in\\mathbb{R}\\]', focus: 'nonhomogeneous', status: '粉色直线上的每一点都满足 AX=b' },
+    { tag: '零空间',   title: '齐次方程 AX=0 的解空间',     desc: 'AX=0 要求 x=0、y=0，z 任意。零空间是过原点沿 z 轴的直线，维数 = 3−r(A)=1。', eq: '\\[N(A)=\\{(0,0,t)^T\\},\\;\\dim N(A)=1\\]', focus: 'homogeneous', status: '琥珀色直线是零空间 N(A)' },
+    { tag: '基础解系', title: '齐次通解 = t × 基础解系方向', desc: '零空间是 1 维的，只需一个基向量 η=(0,0,1)ᵀ。所有齐次解 Xₕ=t·η, t∈ℝ。', eq: '\\[X_h=t\\begin{pmatrix}0\\\\0\\\\1\\end{pmatrix}\\]', focus: 'homogeneous', status: '箭头 η 表示基础解系方向' },
+    { tag: '仿射平移', title: '零空间平移到特解位置',         desc: '将每个齐次解加上 Xₚ，整条解直线就从原点"平移"到非齐次解直线。这就是"特解+齐次解"的几何意义。', eq: '\\[X_p+N(A)=\\{(2,3,t)^T\\}\\]', focus: 'translation', status: '齐次解整体加上 Xₚ → 平移到非齐次解位置' },
+    { tag: '通解',     title: '非齐次通解 = 特解 + 齐次通解', desc: '秩相等保证特解存在，秩小于未知数个数带来自由方向。二者合成完整解集——这是线性代数的核心结论。', eq: '\\[X=X_p+X_h=\\begin{pmatrix}2\\\\3\\\\0\\end{pmatrix}+t\\begin{pmatrix}0\\\\0\\\\1\\end{pmatrix}\\]', focus: 'all', status: '✓ 特解定位，齐次解提供方向，相加得全部解' },
+  ];
+
+  let cur = 0;
+
+  function resetHL() {
+    planeG.scale.setScalar(1);
+    homoG.scale.setScalar(1);
+    nonhomoG.scale.setScalar(1);
+    partPt.scale.setScalar(1);
+    etaA.visible = visible.homogeneous;
+    tA.visible = true;
+    setOpac(planeG, visible.plane ? .22 : 0);
+    if (grid.material) grid.material.opacity = visible.plane ? .38 : 0;
+    setOpac(homoG, visible.homogeneous ? .30 : 0);
+    setOpac(nonhomoG, visible.nonhomogeneous ? .30 : 0);
+    partMat.opacity = .5;
+    tA.setColor(new THREE.Color(COLOR.particular));
+  }
+
+  function applyFoc(focus) {
+    resetHL();
+    switch (focus) {
+      case 'plane':        setOpac(planeG, visible.plane ? .75 : 0); break;
+      case 'particular':   partMat.opacity = 1; partPt.scale.setScalar(1.45); setOpac(planeG, visible.plane ? .35 : 0); break;
+      case 'nonhomogeneous': setOpac(nonhomoG, visible.nonhomogeneous ? 1 : 0); break;
+      case 'homogeneous':  setOpac(homoG, visible.homogeneous ? 1 : 0); etaA.visible = visible.homogeneous; break;
+      case 'translation':  setOpac(homoG, visible.homogeneous ? .85 : 0); setOpac(nonhomoG, visible.nonhomogeneous ? .85 : 0); partMat.opacity = 1; break;
+      case 'all':          setOpac(planeG, visible.plane ? .28 : 0); setOpac(homoG, visible.homogeneous ? .95 : 0); setOpac(nonhomoG, visible.nonhomogeneous ? .95 : 0); partMat.opacity = 1; break;
+    }
+  }
+
+  function renderStep() {
+    const s = STEPS[cur];
+    stepIdx.textContent = String(cur + 1).padStart(2, '0') + ' / ' + String(STEPS.length).padStart(2, '0');
+    stepBdg.textContent = s.tag;
+    stepTit.textContent = s.title;
+    stepDesc.textContent = s.desc;
+    stepEq.innerHTML    = s.eq;
+    status.textContent   = s.status;
+    prevBtn.disabled     = cur === 0;
+    nextBtn.disabled     = cur === STEPS.length - 1;
+    applyFoc(s.focus);
+    typeset([stepEq]);
+  }
+
+  prevBtn.addEventListener('click', function () { if (cur > 0) { cur--; renderStep(); } });
+  nextBtn.addEventListener('click', function () { if (cur < STEPS.length - 1) { cur++; renderStep(); } });
+
+  /* =============================================================
+     八、动画
+     ============================================================= */
+  function smooth(t) { return t * t * (3 - 2 * t); }
+
+  function playAnim() {
+    anim.playing = true;
+    anim.paused = false;
+    anim.start = performance.now();
+    mvG.visible = true;
+    mvG.position.set(0, 0, 0);
+    mvPt.position.set(0, 0, 0);
+    status.textContent = '▶ 阶段 1/2：沿 η 选取齐次解 Xₕ=(0,0,' + fmt(tVal) + ')ᵀ';
+  }
+
+  function pauseAnim() { anim.playing = false; anim.paused = true; }
+
+  function updateAnim(now) {
+    if (!anim.playing) return;
+    const p = Math.min((now - anim.start) / anim.duration, 1);
+    if (p < 0.4) {
+      const q = smooth(p / 0.4);
+      mvG.position.set(0, 0, 0);
+      mvPt.position.set(0, 0, tVal * q);
+      status.textContent = '▶ 阶段 1/2：沿 η 方向 ' + fmt(tVal * q);
+    } else {
+      const q = smooth((p - 0.4) / 0.6);
+      mvPt.position.set(0, 0, tVal);
+      mvG.position.set(2 * q, 3 * q, 0);
+      status.textContent = '▶ 阶段 2/2：平移中 ' + Math.round(q * 100) + '%';
+    }
+    if (p >= 1) {
+      anim.playing = false;
+      mvG.visible = false;
+      cur = STEPS.length - 1;
+      renderStep();
+    }
+  }
+
+  document.getElementById('playBtn').addEventListener('click', playAnim);
+  document.getElementById('pauseBtn').addEventListener('click', pauseAnim);
+  document.getElementById('resetViewBtn').addEventListener('click', function () {
+    cam.position.copy(CAM_HOME);
+    orbit.target.set(.8, 1.1, 0);
+    orbit.update();
+  });
+
+  /* =============================================================
+     九、开关
+     ============================================================= */
+  function bindTog(id, key, grp, show, hide) {
+    const b = document.getElementById(id);
+    b.addEventListener('click', function () {
+      visible[key] = !visible[key];
+      grp.visible = visible[key];
+      b.setAttribute('aria-pressed', String(visible[key]));
+      b.textContent = visible[key] ? hide : show;
+      renderStep();
+    });
+  }
+  bindTog('togglePlane', 'plane', planeG, '显示 xy 平面', '隐藏 xy 平面');
+  bindTog('toggleH', 'homogeneous', homoG, '显示齐次解空间', '隐藏齐次解空间');
+  bindTog('toggleN', 'nonhomogeneous', nonhomoG, '显示非齐次解空间', '隐藏非齐次解空间');
+  document.getElementById('toggleLabels').addEventListener('click', function () {
+    visible.labels = !visible.labels;
+    labels.forEach(function (s) { s.visible = visible.labels; });
+    this.setAttribute('aria-pressed', String(visible.labels));
+    this.textContent = visible.labels ? '隐藏标注' : '显示标注';
+  });
+
+  /* =============================================================
+     十、渲染循环
+     ============================================================= */
+  const clock = new THREE.Clock();
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+    halo.rotation.z = t * 0.7;
+    halo.scale.setScalar(1 + Math.sin(t * 2.3) * 0.08);
+    updateAnim(now);
+    orbit.update();
+    renderer.render(scene, cam);
+  }
+
+  renderStep();
+  animate(performance.now());
+})();
+</script>
+</body>
+</html>

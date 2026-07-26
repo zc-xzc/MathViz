@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>考研专区 · MathViz</title>
+<style>
+:root {
+  --bg-deepest: #0b0817; --bg-deep: #120e24;
+  --bg-card: rgba(18, 14, 40, 0.72); --bg-card-hv: rgba(28, 22, 52, 0.88);
+  --border: rgba(196, 181, 253, 0.10); --border-hv: rgba(196, 181, 253, 0.22);
+  --text: #eeeaff; --text-sec: #a8a0c8; --text-muted: #7c74a0;
+  --purple: #a78bfa; --amber: #f59e0b; --emerald: #34d399; --pink: #f472b6;
+  --radius-sm: 10px; --radius: 18px; --radius-full: 9999px;
+  --font: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-deepest); color: var(--text);
+  font-family: var(--font); font-size: 15px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased; min-height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(ellipse 60% 50% at 30% 5%, rgba(245,158,11,0.05) 0%, transparent 60%),
+    linear-gradient(rgba(139,92,246,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139,92,246,0.02) 1px, transparent 1px),
+    var(--bg-deepest);
+  background-size: 100% 100%, 56px 56px, 56px 56px;
+  pointer-events: none;
+}
+.container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+/* breadcrumb */
+.breadcrumb { display: flex; align-items: center; gap: 8px; padding: 20px 0 16px; font-size: 13px; color: var(--text-muted); border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+.breadcrumb a { color: var(--text-sec); text-decoration: none; }
+.breadcrumb a:hover { color: var(--purple); }
+.breadcrumb .sep { color: var(--text-muted); }
+
+/* header */
+.page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+.header-icon {
+  width: 52px; height: 52px; border-radius: var(--radius-sm);
+  background: rgba(245,158,11,0.12); color: var(--amber);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+}
+.page-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.page-sub { font-size: 14px; color: var(--text-sec); margin-bottom: 32px; padding-left: 68px; }
+
+/* description */
+.desc-box {
+  padding: 18px 20px; border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.01); border: 1px solid var(--border);
+  margin-bottom: 28px;
+}
+.desc-box p { font-size: 14px; color: var(--text-sec); line-height: 1.7; }
+
+/* modules */
+.module-card {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 18px 20px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 12px;
+  transition: all 0.2s; text-decoration: none;
+}
+.module-card:hover {
+  background: var(--bg-card-hv); border-color: var(--border-hv);
+  transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+}
+.module-card.disabled { opacity: 0.45; cursor: default; }
+.module-card.disabled:hover { transform: none; box-shadow: none; }
+
+.module-status {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 6px;
+}
+.module-status.done { background: var(--emerald); box-shadow: 0 0 6px rgba(52,211,153,0.4); }
+.module-status.wip  { background: var(--amber); }
+.module-status.plan { background: var(--text-muted); }
+
+.module-content { flex: 1; }
+.module-name { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.module-desc { font-size: 13px; color: var(--text-sec); line-height: 1.6; }
+.module-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.module-tag {
+  font-size: 10px; padding: 2px 10px; border-radius: var(--radius-full);
+  border: 1px solid var(--border); color: var(--text-muted); letter-spacing: 0.06em;
+}
+.module-tag.exam { border-color: rgba(245,158,11,0.25); color: var(--amber); }
+
+.back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; margin-top: 32px; transition: color 0.15s; }
+.back-link:hover { color: var(--purple); }
+.footer { margin-top: 48px; padding: 24px 0; border-top: 1px solid var(--border); text-align: center; font-size: 13px; color: var(--text-muted); }
+@media (max-width: 620px) {
+  .page-title { font-size: 22px; } .page-sub { padding-left: 0; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <nav class="breadcrumb">
+    <a href="index.html">MathViz</a>
+    <span class="sep">›</span>
+    <span>考研专区</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="header-icon">📐</div>
+    <h1 class="page-title">考研专区</h1>
+  </div>
+  <p class="page-sub">考研数学 · 备考资料与方法</p>
+
+  <div class="desc-box">
+    <p>这里是 MathViz 的考研应试板块。可视化内容帮你建立直觉，而这里的资料帮你把直觉转化为分数。大纲解读、真题分类、公式速查、高频考点可视化——所有与考研直接相关的资源都汇集在此。</p>
+  </div>
+
+  <div class="module-card disabled">
+    <span class="module-status plan"></span>
+    <div class="module-content">
+      <div class="module-name">考研数学公式速查表（规划中）</div>
+      <div class="module-desc">高等数学 + 线性代数 + 概率统计，所有核心公式一表打尽，附带典型使用场景。</div>
+      <div class="module-tags"><span class="module-tag exam">考研</span><span class="module-tag">公式</span></div>
+    </div>
+  </div>
+
+  <div class="module-card disabled">
+    <span class="module-status plan"></span>
+    <div class="module-content">
+      <div class="module-name">历年真题分类索引（规划中）</div>
+      <div class="module-desc">按知识点分类整理的考研数学真题，方便针对性训练薄弱环节。</div>
+      <div class="module-tags"><span class="module-tag exam">考研</span><span class="module-tag">真题</span></div>
+    </div>
+  </div>
+
+  <div class="module-card disabled">
+    <span class="module-status plan"></span>
+    <div class="module-content">
+      <div class="module-name">高频考点可视化索引（规划中）</div>
+      <div class="module-desc">将 MathViz 中的可视化内容按考研大纲重新组织，标注考查频率和难度层级。</div>
+      <div class="module-tags"><span class="module-tag exam">考研</span><span class="module-tag">可视化</span></div>
+    </div>
+  </div>
+
+  <div class="module-card disabled">
+    <span class="module-status plan"></span>
+    <div class="module-content">
+      <div class="module-name">复习路线图（规划中）</div>
+      <div class="module-desc">从零开始的考研数学复习规划，结合 MathViz 可视化资源的时间安排建议。</div>
+      <div class="module-tags"><span class="module-tag exam">考研</span><span class="module-tag">规划</span></div>
+    </div>
+  </div>
+
+  <a href="index.html" class="back-link">← 返回 MathViz 首页</a>
+  <footer class="footer">MathViz · 让数学看得见</footer>
+</div>
+</body>
+</html>
