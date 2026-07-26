@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>线性代数 · MathViz</title>
+<style>
+:root {
+  --bg-deepest: #0b0817; --bg-deep: #120e24;
+  --bg-card: rgba(18, 14, 40, 0.72); --bg-card-hv: rgba(28, 22, 52, 0.88);
+  --border: rgba(196, 181, 253, 0.10); --border-hv: rgba(196, 181, 253, 0.22);
+  --text: #eeeaff; --text-sec: #a8a0c8; --text-muted: #7c74a0;
+  --purple: #a78bfa; --amber: #f59e0b; --emerald: #34d399; --pink: #f472b6;
+  --radius-sm: 10px; --radius: 18px; --radius-full: 9999px;
+  --font: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-deepest); color: var(--text);
+  font-family: var(--font); font-size: 15px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased; min-height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(ellipse 70% 55% at 75% 10%, rgba(139,92,246,0.06) 0%, transparent 65%),
+    linear-gradient(rgba(139,92,246,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139,92,246,0.02) 1px, transparent 1px),
+    var(--bg-deepest);
+  background-size: 100% 100%, 56px 56px, 56px 56px;
+  pointer-events: none;
+}
+.container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; padding: 20px 0 16px; font-size: 13px; color: var(--text-muted); border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+.breadcrumb a { color: var(--text-sec); text-decoration: none; }
+.breadcrumb a:hover { color: var(--purple); }
+.breadcrumb .sep { color: var(--text-muted); }
+.page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+.header-icon { width: 52px; height: 52px; border-radius: var(--radius-sm); background: rgba(167,139,250,0.12); color: var(--purple); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+.page-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.page-sub { font-size: 14px; color: var(--text-sec); margin-bottom: 32px; padding-left: 68px; }
+.module-card {
+  display: flex; align-items: flex-start; gap: 16px;
+  padding: 18px 20px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 12px;
+  transition: all 0.2s; text-decoration: none; cursor: pointer;
+}
+.module-card:hover { background: var(--bg-card-hv); border-color: var(--border-hv); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+.module-card.disabled { opacity: 0.45; cursor: default; }
+.module-card.disabled:hover { transform: none; box-shadow: none; }
+.module-status { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+.module-status.done { background: var(--emerald); box-shadow: 0 0 6px rgba(52,211,153,0.4); }
+.module-status.wip  { background: var(--amber); }
+.module-status.plan { background: var(--text-muted); }
+.module-content { flex: 1; }
+.module-name { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.module-desc { font-size: 13px; color: var(--text-sec); line-height: 1.6; }
+.module-tags { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.module-tag { font-size: 10px; padding: 2px 10px; border-radius: var(--radius-full); border: 1px solid var(--border); color: var(--text-muted); letter-spacing: 0.06em; }
+.module-tag.interactive { border-color: rgba(167,139,250,0.25); color: var(--purple); }
+.module-tag.notes { border-color: rgba(52,211,153,0.25); color: var(--emerald); }
+.back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; margin-top: 32px; transition: color 0.15s; }
+.back-link:hover { color: var(--purple); }
+.footer { margin-top: 48px; padding: 24px 0; border-top: 1px solid var(--border); text-align: center; font-size: 13px; color: var(--text-muted); }
+.note-box { padding: 14px 18px; border-radius: var(--radius-sm); background: rgba(245,158,11,0.04); border: 1px solid rgba(245,158,11,0.12); margin-bottom: 20px; }
+.note-box p { font-size: 13px; color: var(--amber); line-height: 1.6; }
+@media (max-width: 620px) { .page-title { font-size: 22px; } .page-sub { padding-left: 0; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <nav class="breadcrumb">
+    <a href="../index.html">MathViz</a>
+    <span class="sep">›</span>
+    <span>线性代数</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="header-icon">⊞</div>
+    <h1 class="page-title">线性代数</h1>
+  </div>
+  <p class="page-sub">矩阵 · 线性方程组 · 向量空间 · 特征值 · 二次型</p>
+
+  <div class="note-box"><p>📌 考研数学一、二、三均覆盖线性代数。本栏目内容适用于所有备考群体。</p></div>
+
+  <a href="非齐次解三维演示/index.html" class="module-card">
+    <span class="module-status done"></span>
+    <div class="module-content">
+      <div class="module-name">非齐次通解 = 特解 + 齐次通解 · 3D 交互演示</div>
+      <div class="module-desc">从三维空间直观理解非齐次线性方程组的解结构。8 步引导式讲解 + 自由参数滑块 + 平移动画，支持鼠标拖拽旋转视角。</div>
+      <div class="module-tags"><span class="module-tag interactive">3D 交互</span></div>
+    </div>
+  </a>
+
+  <div class="module-card disabled">
+    <span class="module-status plan"></span>
+    <div class="module-content">
+      <div class="module-name">特征值与特征向量 · 可视化（规划中）</div>
+      <div class="module-desc">从几何视角理解特征向量的"方向不变性"和特征值的"伸缩效应"。</div>
+      <div class="module-tags"><span class="module-tag interactive">3D 交互</span></div>
+    </div>
+  </div>
+
+  <div class="module-card disabled">
+    <span class="module-status plan"></span>
+    <div class="module-content">
+      <div class="module-name">二次型与正定性 · 可视化（规划中）</div>
+      <div class="module-desc">通过三维曲面理解二次型的标准形、正定/负定/不定矩阵的几何意义。</div>
+      <div class="module-tags"><span class="module-tag interactive">3D 交互</span></div>
+    </div>
+  </div>
+
+  <div class="module-card disabled">
+    <span class="module-status plan"></span>
+    <div class="module-content">
+      <div class="module-name">线性代数核心笔记（规划中）</div>
+      <div class="module-desc">线性代数知识点精读笔记，配合可视化内容使用，包含典型例题和解题技巧。</div>
+      <div class="module-tags"><span class="module-tag notes">笔记</span></div>
+    </div>
+  </div>
+
+  <a href="../index.html" class="back-link">← 返回 MathViz 首页</a>
+  <footer class="footer">MathViz · 让数学看得见</footer>
+</div>
+</body>
+</html>

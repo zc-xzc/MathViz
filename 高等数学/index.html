@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>高等数学 · MathViz</title>
+<style>
+:root {
+  --bg-deepest: #0b0817; --bg-deep: #120e24;
+  --bg-card: rgba(18, 14, 40, 0.72); --bg-card-hv: rgba(28, 22, 52, 0.88);
+  --border: rgba(196, 181, 253, 0.10); --border-hv: rgba(196, 181, 253, 0.22);
+  --text: #eeeaff; --text-sec: #a8a0c8; --text-muted: #7c74a0;
+  --purple: #a78bfa; --amber: #f59e0b; --emerald: #34d399; --pink: #f472b6;
+  --radius-sm: 10px; --radius: 18px; --radius-full: 9999px;
+  --font: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-deepest); color: var(--text);
+  font-family: var(--font); font-size: 15px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased; min-height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1;
+  background:
+    radial-gradient(ellipse 70% 55% at 25% 10%, rgba(52,211,153,0.04) 0%, transparent 65%),
+    linear-gradient(rgba(139,92,246,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139,92,246,0.02) 1px, transparent 1px),
+    var(--bg-deepest);
+  background-size: 100% 100%, 56px 56px, 56px 56px;
+  pointer-events: none;
+}
+.container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+.breadcrumb { display: flex; align-items: center; gap: 8px; padding: 20px 0 16px; font-size: 13px; color: var(--text-muted); border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+.breadcrumb a { color: var(--text-sec); text-decoration: none; }
+.breadcrumb a:hover { color: var(--purple); }
+.breadcrumb .sep { color: var(--text-muted); }
+.page-header { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+.header-icon { width: 52px; height: 52px; border-radius: var(--radius-sm); background: rgba(52,211,153,0.12); color: var(--emerald); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+.page-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.page-sub { font-size: 14px; color: var(--text-sec); margin-bottom: 32px; padding-left: 68px; }
+.empty-state { text-align: center; padding: 80px 20px; border: 1px dashed var(--border); border-radius: var(--radius); background: rgba(255,255,255,0.01); }
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h2 { font-size: 22px; font-weight: 600; margin-bottom: 8px; color: var(--text-sec); }
+.empty-state p { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; margin-top: 32px; transition: color 0.15s; }
+.back-link:hover { color: var(--purple); }
+.footer { margin-top: 48px; padding: 24px 0; border-top: 1px solid var(--border); text-align: center; font-size: 13px; color: var(--text-muted); }
+@media (max-width: 620px) { .page-title { font-size: 22px; } .page-sub { padding-left: 0; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <nav class="breadcrumb">
+    <a href="../index.html">MathViz</a>
+    <span class="sep">›</span>
+    <span>高等数学</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="header-icon">∫</div>
+    <h1 class="page-title">高等数学</h1>
+  </div>
+  <p class="page-sub">极限 · 导数 · 积分 · 级数 · 微分方程</p>
+
+  <div class="empty-state">
+    <div class="icon">📐</div>
+    <h2>内容筹备中</h2>
+    <p>高等数学的可视化内容正在规划中。<br>首批内容将覆盖极限的 ε-δ 语言、定积分的黎曼和、泰勒展开等核心概念。<br>敬请关注后续更新。</p>
+  </div>
+
+  <a href="../index.html" class="back-link">← 返回 MathViz 首页</a>
+  <footer class="footer">MathViz · 让数学看得见</footer>
+</div>
+</body>
+</html>
