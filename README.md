@@ -1,6 +1,14 @@
 # MathViz · 让数学看得见
 
-> 用交互式可视化理解数学。—— 一个开源数学可视化知识库。
+> 用交互式可视化理解数学。—— [github.com/zc-xzc/MathViz](https://github.com/zc-xzc/MathViz)
+
+---
+
+## 在线访问
+
+👉 **GitHub Pages**: [https://zc-xzc.github.io/MathViz/](https://zc-xzc.github.io/MathViz/)
+
+---
 
 ## 理念
 
@@ -10,28 +18,27 @@
 - **从直觉到严谨** — 可视化 + 代数推导，两个角度互相印证
 - **从知识到体系** — 线代、高数、概率不再是孤立的科目
 
+## ✅ 当前内容
+
+| 科目 | 模块 | 类型 | 说明 |
+|------|------|------|------|
+| 线性代数 | [非齐次通解 = 特解 + 齐次通解 · 3D 求解器](线性代数/非齐次解三维演示/index.html) | 3D 交互 | 支持任意 3×3 矩阵输入，动态求解并重建场景 |
+
 ## 📂 目录结构
 
 ```
 MathViz/
-├── index.html            # 首页
-├── README.md
+├── index.html                 # 首页
 ├── 线性代数/
-│   ├── index.html        # 线性代数科目页
+│   ├── index.html             # 线性代数科目页
 │   └── 非齐次解三维演示/
-│       └── index.html    # 3D 交互演示
+│       └── index.html         # 3D 方程组求解器（核心交互）
 ├── 高等数学/
-│   └── index.html        # 高等数学科目页（筹备中）
+│   └── index.html             # 高等数学科目页（筹备中）
 ├── exam/
-│   └── index.html        # 考研专区
-└── assets/               # 全局资源
+│   └── index.html             # 考研专区
+└── assets/                    # 全局资源
 ```
-
-## ✅ 当前内容
-
-| 科目 | 模块 | 类型 | 状态 |
-|------|------|------|------|
-| 线性代数 | 非齐次通解 = 特解 + 齐次通解 | 3D 交互 | ✅ 已发布 |
 
 ## 🗺 规划中
 
@@ -41,7 +48,9 @@ MathViz/
 
 ## 🚀 部署
 
-本仓库使用 GitHub Pages 部署，`index.html` 为入口页面。
+本仓库使用 [GitHub Pages](https://pages.github.com/) 部署，`index.html` 为入口页面。
+
+一键直达：[https://zc-xzc.github.io/MathViz/](https://zc-xzc.github.io/MathViz/)
 
 ## 📄 许可
 
