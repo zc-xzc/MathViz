@@ -187,7 +187,7 @@ input[type="range"]:focus-visible { outline: 2px solid var(--accent-1); outline-
 .help-hint { margin-top: 8px; text-align: center; font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; }
 mjx-container { color: inherit !important; display: inline-block !important; }
 
-@media (max-width: 1100px) { .main { grid-template-columns: 1fr; } .side-panel { max-height: 480px; } }
+@media (max-width: 1100px) { html, body { height: auto; overflow: auto; } #app { height: auto; min-height: 100vh; } .main { grid-template-columns: 1fr; } .scene-section { min-height: 420px; } .side-panel { max-height: 480px; } }
 @media (max-width: 620px) { .header { flex-wrap: wrap; padding: 10px 14px; } .header-right { width: 100%; justify-content: flex-end; } .main { padding: 10px 14px 12px; } .coord-grid { grid-template-columns: 1fr; } .side-panel { max-height: 380px; } .mat-input { width: 42px; height: 28px; font-size: 11px; } }
 @media (prefers-reduced-motion: reduce) { .btn, input[type="range"]::-webkit-slider-thumb { transition: none; } }
 </style>
@@ -444,7 +444,7 @@ mjx-container { color: inherit !important; display: inline-block !important; }
 
     // 零空间基
     const nullspace = [];
-    if (consistent) {
+    {
       for (const free of freeCols) {
         const v = [0, 0, 0];
         v[free] = 1;
@@ -465,8 +465,14 @@ mjx-container { color: inherit !important; display: inline-block !important; }
   function readInputs() {
     const ids = ['a00','a01','a02','a10','a11','a12','a20','a21','a22','b0','b1','b2'];
     const vals = ids.map(id => {
-      const v = parseFloat(document.getElementById(id).value);
-      return isNaN(v) ? 0 : v;
+      const el = document.getElementById(id);
+      const text = el.value.trim();
+      const v = Number(text);
+      if (!text || !Number.isFinite(v)) {
+        el.focus();
+        throw new Error('请输入有效的有限数字（支持小数和科学计数法）');
+      }
+      return v;
     });
     return {
       A: [[vals[0],vals[1],vals[2]],[vals[3],vals[4],vals[5]],[vals[6],vals[7],vals[8]]],
@@ -505,7 +511,15 @@ mjx-container { color: inherit !important; display: inline-block !important; }
   const CAM_HOME = new THREE.Vector3(10.8, 10.2, 8.2);
   cam.position.copy(CAM_HOME);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+  } catch (error) {
+    errEl.hidden = false;
+    errEl.textContent = '无法启动 WebGL。请启用浏览器硬件加速，或换用支持 WebGL 的浏览器。';
+    statusBar.textContent = '❌ 三维场景初始化失败';
+    return;
+  }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputEncoding = THREE.sRGBEncoding;
   mount.appendChild(renderer.domElement);
@@ -524,8 +538,8 @@ mjx-container { color: inherit !important; display: inline-block !important; }
   scene.add(key);
 
   function resize() {
-    const w = Math.max(320, mount.clientWidth);
-    const h = Math.max(420, mount.clientHeight);
+    const w = Math.max(1, mount.clientWidth);
+    const h = Math.max(1, mount.clientHeight);
     cam.aspect = w / h;
     cam.updateProjectionMatrix();
     renderer.setSize(w, h, false);
@@ -762,8 +776,18 @@ mjx-container { color: inherit !important; display: inline-block !important; }
     // 清空动态组
     while (dynamicGroup.children.length) {
       const c = dynamicGroup.children[0];
-      if (c.geometry) c.geometry.dispose();
-      if (c.material) c.material.dispose();
+      c.traverse(function (child) {
+        const labelIndex = labels.indexOf(child);
+        if (labelIndex !== -1) labels.splice(labelIndex, 1);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.forEach(function (material) {
+            if (material.map) material.map.dispose();
+            material.dispose();
+          });
+        }
+      });
       dynamicGroup.remove(c);
     }
 
@@ -787,15 +811,8 @@ mjx-container { color: inherit !important; display: inline-block !important; }
       // 零矩阵，列空间是原点——不画平面
     } else if (rank === 1) {
       // 列空间是一条线：选第一个非零列方向
-      let colDir = [0, 0, 0];
-      for (let i = 0; i < 3; i++) {
-        const c0 = currentA ? currentA[i][0] : 0;
-        const c1 = currentA ? currentA[i][1] : 0;
-        const c2 = currentA ? currentA[i][2] : 0;
-        if (Math.abs(c0) + Math.abs(c1) + Math.abs(c2) > TOL) {
-          colDir = [c0, c1, c2]; break;
-        }
-      }
+      const col = pivotCols[0];
+      let colDir = currentA.map(row => row[col]);
       const norm = Math.sqrt(colDir[0]**2 + colDir[1]**2 + colDir[2]**2);
       if (norm > TOL) {
         colDir = [colDir[0]/norm, colDir[1]/norm, colDir[2]/norm];
@@ -806,27 +823,10 @@ mjx-container { color: inherit !important; display: inline-block !important; }
         lbl.position.set(colDir[0]*4.5, colDir[1]*4.5, colDir[2]*4.5);
         planeG.add(lbl);
       }
-    } else if (rank >= 2) {
-      // 列空间是一个平面：从 A 中选两个线性无关的列
-      let v1 = null, v2 = null;
-      const A = currentA || [[1,0,0],[0,1,0],[0,0,0]];
-      if (rank >= 1) {
-        for (let j = 0; j < 3; j++) {
-          const c = [A[0][j], A[1][j], A[2][j]];
-          if (Math.sqrt(c[0]**2+c[1]**2+c[2]**2) > TOL) {
-            if (!v1) { v1 = c; continue; }
-            // 检查与 v1 是否线性无关
-            const cross = v1[1]*c[2] - v1[2]*c[1];
-            if (Math.abs(cross) > TOL) { v2 = c; break; }
-          }
-        }
-      }
-      if (!v2 && v1) {
-        // 找一个与 v1 正交的向量
-        v2 = [v1[1], -v1[0], 0];
-        const n2 = Math.sqrt(v2[0]**2+v2[1]**2+v2[2]**2);
-        if (n2 < TOL) v2 = [v1[2], 0, -v1[0]];
-      }
+    } else if (rank === 2) {
+      // 消元的主元列对应原矩阵中线性无关的列。
+      const v1 = currentA.map(row => row[pivotCols[0]]);
+      const v2 = currentA.map(row => row[pivotCols[1]]);
       if (v1 && v2) {
         const pl = makeSpanPlane(v1, v2, COL.plane, 0.13, 10);
         planeG.add(pl);
@@ -857,6 +857,7 @@ mjx-container { color: inherit !important; display: inline-block !important; }
     R.particularMat = partMat;
     const partPt = new THREE.Mesh(new THREE.SphereGeometry(.22, 28, 20), partMat);
     partPt.position.set(particular[0], particular[1], particular[2]);
+    partPt.visible = consistent;
     dynamicGroup.add(partPt);
     R.particularPoint = partPt;
 
@@ -866,29 +867,35 @@ mjx-container { color: inherit !important; display: inline-block !important; }
     });
     const halo = new THREE.Mesh(new THREE.RingGeometry(.3, .48, 40), haloMat);
     halo.position.copy(partPt.position);
+    halo.visible = consistent;
     dynamicGroup.add(halo);
     R.particularHalo = halo;
 
     const paL = makeLabel('特解 Xₚ=' + fmtVec(particular), CSS_C.particular, .55, true);
     paL.position.set(particular[0]+1, particular[1]-1, particular[2]+.4);
-    dynamicGroup.add(paL);
+    const particularLabelGroup = new THREE.Group();
+    particularLabelGroup.visible = consistent;
+    particularLabelGroup.add(paL);
+    dynamicGroup.add(particularLabelGroup);
 
     // ── 动态点 ──
     const xhPt = new THREE.Mesh(new THREE.SphereGeometry(.17, 24, 16), makeMat(COL.homogeneous, 1));
     const xPt = new THREE.Mesh(new THREE.SphereGeometry(.19, 24, 16), makeMat(COL.nonhomogeneous, 1));
-    dynamicGroup.add(xhPt, xPt);
+    homoG.add(xhPt);
+    nonhomoG.add(xPt);
+    xPt.visible = consistent;
     R.xhPoint = xhPt;
     R.xPoint = xPt;
 
     const xhL = makeLabel('Xₕ', CSS_C.homogeneous, .40, true);
-    dynamicGroup.add(xhL);
+    homoG.add(xhL);
     R.xhLabel = xhL;
     const xxL = makeLabel('X = Xₚ + Xₕ', CSS_C.nonhomogeneous, .45, true);
-    dynamicGroup.add(xxL);
+    nonhomoG.add(xxL);
     R.xpXhLabel = xxL;
 
     // ── 零空间可视化 ──
-    if (consistent && nullspace.length > 0) {
+    if (nullspace.length > 0) {
       // 零空间线（原始位置 — 过原点）
       const nullDir = nullspace[0];
       const nullLine = makeInfLine(nullDir, COL.homogeneous, true);
@@ -900,10 +907,16 @@ mjx-container { color: inherit !important; display: inline-block !important; }
       homoG.add(hoL);
 
       // 零空间如果是 2 维
-      if (nullspace.length >= 2) {
+      if (nullspace.length === 2) {
         const plane0 = makeSpanPlane(nullspace[0], nullspace[1], COL.homogeneous, 0.04, 7);
         plane0.position.set(0, 0, 0);
         homoG.add(plane0);
+      }
+
+      if (nullspace.length === 3) {
+        const fullSpace = makeLabel(consistent ? 'N(A) = 解集 = ℝ³' : 'N(A) = ℝ³', CSS_C.homogeneous, .55, true);
+        fullSpace.position.set(0, 3, 0);
+        homoG.add(fullSpace);
       }
 
       // 基础解系方向箭头
@@ -916,12 +929,12 @@ mjx-container { color: inherit !important; display: inline-block !important; }
           new THREE.Vector3(nd[0], nd[1], nd[2]),
           new THREE.Vector3(0, 0, 0), etaLen, COL.homogeneous, .28, .16
         );
-        dynamicGroup.add(etaA);
+        homoG.add(etaA);
         R.etaArrow = etaA;
 
         const etL = makeLabel('η=' + fmtVec(nd) + ' 基方向', CSS_C.homogeneous, .48, true);
         etL.position.set(nd[0]*(etaLen+1.2), nd[1]*(etaLen+1.2), nd[2]*(etaLen+1.2));
-        dynamicGroup.add(etL);
+        homoG.add(etL);
         R.etaLabel = etL;
       }
 
@@ -939,7 +952,7 @@ mjx-container { color: inherit !important; display: inline-block !important; }
       nonhomoG.add(noL);
 
       // 如果是 2 维解空间
-      if (nullspace.length >= 2) {
+      if (nullspace.length === 2) {
         const affPlane = makeAffinePlane(particular, nullspace[0], nullspace[1], COL.nonhomogeneous, 0.04, 7);
         nonhomoG.add(affPlane);
       }
@@ -975,7 +988,7 @@ mjx-container { color: inherit !important; display: inline-block !important; }
     R.movingGroup = mvG;
     mvG.visible = false;
     if (consistent && nullspace.length > 0) {
-      const mvL = makeSolLine(particular, nullspace[0], COL.particular, true);
+      const mvL = makeSolLine([0, 0, 0], nullspace[0], COL.particular, true);
       mvL.scale.set(.99, .99, 1);
       mvG.add(mvL);
     }
@@ -987,16 +1000,14 @@ mjx-container { color: inherit !important; display: inline-block !important; }
     applyVisibility();
 
     // ── 更新 UI ──
-    if (consistent && nullspace.length > 0) {
-      updateParameter(0, true);
-    }
+    updateParameter(0);
   }
 
   function applyVisibility() {
     const R = sceneRefs;
     if (R.planeGroup) R.planeGroup.visible = visibility.plane;
     if (R.homogeneousGroup) R.homogeneousGroup.visible = visibility.homogeneous;
-    if (R.nonhomoGroup) R.nonhomoGroup.visible = visibility.nonhomogeneous;
+    if (R.nonhomoGroup) R.nonhomoGroup.visible = visibility.nonhomogeneous && currentResult.consistent;
     labels.forEach(function (s) { s.visible = visibility.labels; });
   }
 
@@ -1025,7 +1036,10 @@ mjx-container { color: inherit !important; display: inline-block !important; }
     const res = currentResult;
     if (!res || !res.consistent || res.nullspace.length === 0) {
       xhVal.textContent = '—';
-      xVal.textContent = '—';
+      xVal.textContent = res && res.consistent ? fmtVec(res.particular) : '—';
+      liveEq.textContent = res && res.consistent ? '唯一解：X = ' + fmtVec(res.particular) : '方程组无解';
+      if (res && res.consistent && R.xPoint) R.xPoint.position.set(...res.particular);
+      if (res && res.consistent && R.xpXhLabel) R.xpXhLabel.position.set(res.particular[0]+1, res.particular[1]+.3, res.particular[2]);
       return;
     }
 
@@ -1067,7 +1081,12 @@ mjx-container { color: inherit !important; display: inline-block !important; }
      六、求解并更新
      ============================================================= */
   function solveAndUpdate() {
-    const input = readInputs();
+    let input;
+    try { input = readInputs(); }
+    catch (error) { statusBar.textContent = error.message; return; }
+    animState.playing = false;
+    animState.paused = false;
+    slider.value = '0';
     currentA = input.A;
     currentB = input.b;
     const result = solveSystem(input.A, input.b);
@@ -1099,7 +1118,7 @@ mjx-container { color: inherit !important; display: inline-block !important; }
         const nStr = '(' + fmtNum(nd[0]) + ', ' + fmtNum(nd[1]) + ', ' + fmtNum(nd[2]) + ')ᵀ';
         solEl.innerHTML = '\\[X=' + fmtVec(particular) + '+t' + nStr + ',\\;t\\in\\mathbb{R}\\]';
       } else if (nullspace.length >= 2) {
-        solEl.innerHTML = '\\[X=' + fmtVec(particular) + '+t_1\\eta_1+t_2\\eta_2\\]';
+        solEl.innerHTML = '\\[X=' + fmtVec(particular) + nullspace.map((v, i) => '+t_{' + (i+1) + '}' + fmtVec(v)).join('') + '\\]';
       }
       typeset([solEl]);
     } else {
@@ -1107,10 +1126,11 @@ mjx-container { color: inherit !important; display: inline-block !important; }
     }
 
     // 维数公式
-    document.getElementById('dimN').textContent = 'dim N(A) = ' + (consistent ? nullspace.length : '—');
+    document.getElementById('dimN').textContent = 'dim N(A) = ' + nullspace.length;
     document.getElementById('dimRank').textContent = 'rank(A) = ' + rank;
     document.getElementById('dimNCols').textContent = 'n = ' + result.nCols;
 
+    slider.disabled = !consistent || nullspace.length === 0;
     // 重建 3D 场景
     rebuildScene();
 
@@ -1205,7 +1225,12 @@ mjx-container { color: inherit !important; display: inline-block !important; }
   }
 
   function renderStep() {
-    const s = STEPS[currentStep];
+    let s = STEPS[currentStep];
+    if (currentResult && !currentResult.consistent && currentStep >= 2) {
+      s = { tag: '无解', title: '方程组不相容', desc: 'b 不在列空间中，因此不存在特解或非齐次解集；零空间 N(A) 仍然存在。', eq: '\\[r(A)<r(A|b)\\]', focus: 'plane', status: '❌ 无解：不存在特解或非齐次解集' };
+    } else if (currentResult && currentResult.nullspace.length === 0 && currentStep >= 3) {
+      s = { tag: '唯一解', title: '没有自由变量，解唯一', desc: 'A 满秩，零空间只有零向量，因此通解就是唯一的特解。', eq: '\\[N(A)=\\{0\\},\\quad X=X_p\\]', focus: 'particular', status: '✅ 满秩方程组具有唯一解' };
+    }
     stepIdx.textContent = String(currentStep+1).padStart(2,'0') + ' / ' + String(STEPS.length).padStart(2,'0');
     stepBdg.textContent = s.tag;
     stepTit.textContent = s.title;
